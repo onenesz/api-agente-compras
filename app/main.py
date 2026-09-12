@@ -1,9 +1,13 @@
+import logging
+
 import psycopg
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from app.routers import analisis, productos, proveedores, solicitudes
 from app.schemas import ErrorRespuesta
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="API Agente de Compras",
@@ -18,4 +22,5 @@ for router in (productos.router, proveedores.router, solicitudes.router, analisi
 
 @app.exception_handler(psycopg.Error)
 def database_error(request: Request, exc: psycopg.Error):
+    logger.error("Error consultando PostgreSQL", exc_info=(type(exc), exc, exc.__traceback__))
     return JSONResponse(status_code=503, content={"detail": "No se pudo consultar PostgreSQL"})
