@@ -1,0 +1,510 @@
+openapi: 3.0.3
+info:
+  title: API Agente de Compras
+  description: API de solo lectura para consultas y análisis del Agente de Compras
+  version: 1.0.0
+paths:
+  /productos:
+    get:
+      tags:
+      - productos
+      summary: Obtener todos los productos
+      description: Consulta el catálogo completo con categoría y stocks. Conserva
+        valores null. Ordenado por código de producto.
+      operationId: listar_productos
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Producto'
+                type: array
+                title: Response Listar Productos
+        '503':
+          description: PostgreSQL no disponible o consulta fallida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+  /productos/reposicion:
+    get:
+      tags:
+      - productos
+      summary: Obtener productos que necesitan reposición
+      description: Devuelve productos con stock actual menor al mínimo y su déficit.
+        Excluye mínimos null. Ordenado por código de producto.
+      operationId: listar_reposicion
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Reposicion'
+                type: array
+                title: Response Listar Reposicion
+        '503':
+          description: PostgreSQL no disponible o consulta fallida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+  /productos/{codigo_producto}:
+    get:
+      tags:
+      - productos
+      summary: Consultar un producto por código
+      description: Obtiene los datos y stocks de un producto exacto. Devuelve 404
+        si no existe.
+      operationId: obtener_producto
+      parameters:
+      - name: codigo_producto
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Codigo Producto
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Producto'
+        '503':
+          description: PostgreSQL no disponible o consulta fallida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '404':
+          description: Producto no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /proveedores/producto/{codigo_producto}:
+    get:
+      tags:
+      - proveedores
+      summary: Consultar proveedores de un producto
+      description: Lista proveedores asociados al código exacto, ordenados por código
+        de proveedor. Conserva precios y plazos null. Devuelve una lista vacía si
+        no hay asociaciones o el producto no existe.
+      operationId: listar_proveedores_producto
+      parameters:
+      - name: codigo_producto
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Codigo Producto
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProveedorProducto'
+                title: Response Listar Proveedores Producto
+        '503':
+          description: PostgreSQL no disponible o consulta fallida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /solicitudes:
+    get:
+      tags:
+      - solicitudes
+      summary: Consultar solicitudes de compra
+      description: Lista solicitudes ordenadas por código. Permite filtrar por pendiente,
+        aprobada, rechazada o completada. Solo consulta; no cambia estados.
+      operationId: listar_solicitudes
+      parameters:
+      - name: estado
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - pendiente
+          - aprobada
+          - rechazada
+          - completada
+          title: Estado
+          nullable: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Solicitud'
+                title: Response Listar Solicitudes
+        '503':
+          description: PostgreSQL no disponible o consulta fallida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /solicitudes/pendientes:
+    get:
+      tags:
+      - solicitudes
+      summary: Obtener solicitudes pendientes
+      description: Devuelve únicamente solicitudes en estado pendiente, ordenadas
+        por código de solicitud.
+      operationId: listar_solicitudes_pendientes
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Solicitud'
+                type: array
+                title: Response Listar Solicitudes Pendientes
+        '503':
+          description: PostgreSQL no disponible o consulta fallida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+  /analisis/prioridades:
+    get:
+      tags:
+      - analisis
+      summary: Obtener prioridades de reposición
+      description: Devuelve productos con stock actual menor al mínimo, excluyendo
+        mínimos null. Ordena estrictamente por déficit DESC, stock actual ASC y código
+        de producto ASC. Aplica desempates solo si empata el criterio anterior. No
+        utiliza otras heurísticas.
+      operationId: obtener_prioridades
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Reposicion'
+                type: array
+                title: Response Obtener Prioridades
+        '503':
+          description: PostgreSQL no disponible o consulta fallida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+  /analisis/datos-faltantes:
+    get:
+      tags:
+      - analisis
+      summary: Detectar información faltante para Compras
+      description: Identifica por tabla y claves cada stock mínimo, precio unitario
+        o plazo de entrega null. Una entrada por campo faltante, sin completar datos.
+        Ordena por tabla, producto, proveedor y campo.
+      operationId: obtener_datos_faltantes
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DatoFaltante'
+                type: array
+                title: Response Obtener Datos Faltantes
+        '503':
+          description: PostgreSQL no disponible o consulta fallida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+  /analisis/producto/{codigo_producto}:
+    get:
+      tags:
+      - analisis
+      summary: Analizar reposición y proveedores de un producto
+      description: Consolida producto, necesidad de reposición y proveedores asociados.
+        Con mínimo null, necesidad y déficit son null. Sin reposición, necesidad es
+        false y déficit null. Devuelve 404 si el producto no existe.
+      operationId: obtener_analisis_producto
+      parameters:
+      - name: codigo_producto
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Codigo Producto
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalisisProducto'
+        '503':
+          description: PostgreSQL no disponible o consulta fallida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '404':
+          description: Producto no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    AnalisisProducto:
+      properties:
+        producto:
+          $ref: '#/components/schemas/Producto'
+        necesita_reposicion:
+          type: boolean
+          title: Necesita Reposicion
+          nullable: true
+        deficit:
+          type: integer
+          title: Deficit
+          description: Déficit positivo cuando necesita reposición; null en los demás
+            casos.
+          nullable: true
+        proveedores_disponibles:
+          items:
+            $ref: '#/components/schemas/ProveedorProducto'
+          type: array
+          title: Proveedores Disponibles
+      type: object
+      required:
+      - producto
+      - necesita_reposicion
+      - deficit
+      - proveedores_disponibles
+      title: AnalisisProducto
+    DatoFaltante:
+      properties:
+        tabla:
+          type: string
+          enum:
+          - productos
+          - producto_proveedor
+          title: Tabla
+        codigo_producto:
+          type: string
+          title: Codigo Producto
+        codigo_proveedor:
+          type: string
+          title: Codigo Proveedor
+          nullable: true
+        campo:
+          type: string
+          enum:
+          - stock_minimo
+          - precio_unitario
+          - plazo_entrega_dias
+          title: Campo
+      type: object
+      required:
+      - tabla
+      - codigo_producto
+      - codigo_proveedor
+      - campo
+      title: DatoFaltante
+    ErrorRespuesta:
+      properties:
+        detail:
+          type: string
+          title: Detail
+      type: object
+      required:
+      - detail
+      title: ErrorRespuesta
+    EstadoSolicitud:
+      type: string
+      enum:
+      - pendiente
+      - aprobada
+      - rechazada
+      - completada
+      title: EstadoSolicitud
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    Producto:
+      properties:
+        codigo_producto:
+          type: string
+          title: Codigo Producto
+        nombre:
+          type: string
+          title: Nombre
+        categoria:
+          type: string
+          title: Categoria
+          nullable: true
+        stock_actual:
+          type: integer
+          title: Stock Actual
+        stock_minimo:
+          type: integer
+          title: Stock Minimo
+          nullable: true
+      type: object
+      required:
+      - codigo_producto
+      - nombre
+      - categoria
+      - stock_actual
+      - stock_minimo
+      title: Producto
+    ProveedorProducto:
+      properties:
+        codigo_proveedor:
+          type: string
+          title: Codigo Proveedor
+        nombre:
+          type: string
+          title: Nombre
+        codigo_producto:
+          type: string
+          title: Codigo Producto
+        precio_unitario:
+          type: string
+          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          title: Precio Unitario
+          description: Precio decimal exacto serializado como cadena; null si falta.
+          nullable: true
+        plazo_entrega_dias:
+          type: integer
+          title: Plazo Entrega Dias
+          nullable: true
+      type: object
+      required:
+      - codigo_proveedor
+      - nombre
+      - codigo_producto
+      - precio_unitario
+      - plazo_entrega_dias
+      title: ProveedorProducto
+    Reposicion:
+      properties:
+        codigo_producto:
+          type: string
+          title: Codigo Producto
+        nombre:
+          type: string
+          title: Nombre
+        stock_actual:
+          type: integer
+          title: Stock Actual
+        stock_minimo:
+          type: integer
+          title: Stock Minimo
+        deficit:
+          type: integer
+          title: Deficit
+      type: object
+      required:
+      - codigo_producto
+      - nombre
+      - stock_actual
+      - stock_minimo
+      - deficit
+      title: Reposicion
+    Solicitud:
+      properties:
+        codigo_solicitud:
+          type: string
+          title: Codigo Solicitud
+        codigo_producto:
+          type: string
+          title: Codigo Producto
+        cantidad:
+          type: integer
+          title: Cantidad
+        estado:
+          $ref: '#/components/schemas/EstadoSolicitud'
+        fecha_solicitud:
+          type: string
+          format: date
+          title: Fecha Solicitud
+      type: object
+      required:
+      - codigo_solicitud
+      - codigo_producto
+      - cantidad
+      - estado
+      - fecha_solicitud
+      title: Solicitud
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+servers:
+- url: http://127.0.0.1:8000
+  description: Desarrollo local. Reemplazar por la URL HTTPS pública antes de importar
+    en watsonx Orchestrate.
