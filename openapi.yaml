@@ -505,6 +505,5 @@ components:
       - type
       title: ValidationError
 servers:
-- url: http://127.0.0.1:8000
-  description: Desarrollo local. Reemplazar por la URL HTTPS pública antes de importar
-    en watsonx Orchestrate.
+- url: https://api-agente-compras-production.up.railway.app/
+  description: API pública del Agente de Compras
